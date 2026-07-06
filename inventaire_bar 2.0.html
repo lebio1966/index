@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1A115C">
+<title>Inventaire Bar — Phil-Good</title>
+<!-- PWA minimal : installable sur l'écran d'accueil du téléphone -->
+<link rel="manifest" href='data:application/json,{"name":"Inventaire Bar","short_name":"Inventaire","display":"standalone","background_color":"%231A115C","theme_color":"%231A115C","icons":[]}'>
+<style>
+  /* ===== Identité Phil-Good ===== */
+  :root{
+    --navy:#1A115C;      /* bleu marine marque */
+    --navy-2:#241a6e;    /* navy éclairci pour cartes */
+    --navy-3:#2e2380;    /* survol */
+    --gold:#EF9F27;      /* or marque */
+    --gold-soft:#f6bf6a;
+    --ink:#0f0a3a;       /* fond le plus sombre */
+    --paper:#f5f3fb;     /* texte clair */
+    --muted:#a9a3d6;     /* texte secondaire */
+    --line:rgba(255,255,255,.10);
+    --ok:#33c37d;
+    --danger:#ff5d6c;
+    --radius:16px;
+    --tabbar:76px;
+    font-size:16px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%}
+  body{
+    font-family:"Montserrat",Arial,Helvetica,sans-serif;
+    background:
+      radial-gradient(1200px 600px at 100% -10%, rgba(239,159,39,.10), transparent 60%),
+      linear-gradient(180deg,var(--navy),var(--ink));
+    color:var(--paper);
+    min-height:100%;
+    padding-bottom:calc(var(--tabbar) + env(safe-area-inset-bottom));
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3{font-weight:800;letter-spacing:.2px;margin:0}
+  button{font-family:inherit}
+  input,select{font-family:inherit}
+
+  /* ===== En-tête ===== */
+  header.app{
+    position:sticky;top:0;z-index:30;
+    display:flex;align-items:center;gap:12px;
+    padding:14px 18px calc(14px);
+    padding-top:calc(14px + env(safe-area-inset-top));
+    background:linear-gradient(180deg,rgba(26,17,92,.96),rgba(26,17,92,.72));
+    backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line);
+  }
+  .logo{
+    width:38px;height:38px;border-radius:11px;flex:none;
+    background:linear-gradient(135deg,var(--gold),#d97f10);
+    display:grid;place-items:center;color:var(--navy);font-weight:900;font-size:19px;
+    box-shadow:0 6px 18px rgba(239,159,39,.35);
+  }
+  header .brand{line-height:1.05}
+  header .brand b{font-size:17px}
+  header .brand span{display:block;font-size:11px;color:var(--gold-soft);letter-spacing:2px;text-transform:uppercase;font-weight:700}
+  header .barname{margin-left:auto;font-size:12px;color:var(--muted);text-align:right;max-width:40%}
+
+  main{padding:16px 16px 8px;max-width:720px;margin:0 auto}
+  .view{display:none;animation:fade .25s ease}
+  .view.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  /* ===== Blocs / cartes ===== */
+  .card{
+    background:linear-gradient(180deg,var(--navy-2),rgba(36,26,110,.55));
+    border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px;margin-bottom:14px;
+  }
+  .eyebrow{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--gold);font-weight:800;margin-bottom:8px}
+  .muted{color:var(--muted)}
+  .row{display:flex;gap:10px;align-items:center}
+  .grow{flex:1}
+
+  /* ===== Champ de scan (signature) ===== */
+  .scanwrap{position:relative}
+  .scanwrap label{display:block;font-size:12px;color:var(--muted);margin-bottom:8px}
+  #scanInput{
+    width:100%;padding:18px 16px;font-size:22px;letter-spacing:2px;font-weight:700;
+    color:var(--paper);background:rgba(0,0,0,.28);
+    border:2px solid var(--gold);border-radius:14px;outline:none;
+    box-shadow:0 0 0 4px rgba(239,159,39,.12), inset 0 0 22px rgba(239,159,39,.06);
+  }
+  #scanInput::placeholder{color:#8f88c4;font-weight:500;letter-spacing:1px}
+  .hint{font-size:12px;color:var(--muted);margin-top:8px}
+
+  /* ===== Boutons ===== */
+  .btn{
+    border:none;border-radius:13px;padding:15px 16px;font-size:16px;font-weight:800;
+    cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:9px;
+    transition:transform .05s ease, filter .15s ease;
+  }
+  .btn:active{transform:translateY(1px) scale(.995)}
+  .btn.gold{background:linear-gradient(135deg,var(--gold),#e08a12);color:var(--navy)}
+  .btn.ghost{background:transparent;color:var(--paper);border:1.5px solid var(--line)}
+  .btn.solid{background:var(--navy-3);color:var(--paper)}
+  .btn.danger{background:transparent;color:var(--danger);border:1.5px solid rgba(255,93,108,.45)}
+  .btn.block{width:100%}
+  .btn.big{padding:18px;font-size:17px}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+
+  /* ===== Panneau résultat scan ===== */
+  #result{margin-top:14px}
+  .prodcard{border-left:4px solid var(--gold)}
+  .prodcard h3{font-size:20px;margin-bottom:2px}
+  .badge{display:inline-block;font-size:12px;font-weight:800;padding:4px 10px;border-radius:999px;background:rgba(239,159,39,.16);color:var(--gold-soft);margin-right:6px}
+  .badge.new{background:rgba(51,195,125,.16);color:#7ce6ad}
+  .code{font-variant-numeric:tabular-nums;font-size:13px;color:var(--muted);letter-spacing:1px}
+
+  /* Stepper quantité */
+  .stepper{display:flex;align-items:center;gap:12px;margin:14px 0}
+  .stepper button{
+    width:52px;height:52px;border-radius:14px;font-size:26px;font-weight:800;border:none;cursor:pointer;
+    background:var(--navy-3);color:var(--gold);
+  }
+  .stepper input{
+    width:96px;text-align:center;font-size:28px;font-weight:800;color:var(--paper);
+    background:rgba(0,0,0,.28);border:1.5px solid var(--line);border-radius:14px;padding:10px 4px;
+    font-variant-numeric:tabular-nums;
+  }
+  .stepper .unit{color:var(--muted);font-size:13px}
+
+  /* Formulaire */
+  .field{margin-bottom:12px}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:600}
+  .field input,.field select{
+    width:100%;padding:13px 14px;font-size:16px;color:var(--paper);
+    background:rgba(0,0,0,.24);border:1.5px solid var(--line);border-radius:12px;outline:none;
+  }
+  .field input:focus,.field select:focus{border-color:var(--gold)}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+  .chip{padding:8px 12px;border-radius:999px;font-size:13px;font-weight:700;cursor:pointer;
+    background:rgba(255,255,255,.06);color:var(--paper);border:1px solid var(--line)}
+  .chip.on{background:var(--gold);color:var(--navy);border-color:var(--gold)}
+
+  /* Liste des derniers scans */
+  .recent{margin-top:16px}
+  .recent .item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.04);margin-bottom:8px}
+  .recent .item .q{margin-left:auto;font-weight:800;color:var(--gold);font-variant-numeric:tabular-nums}
+  .recent .item small{color:var(--muted)}
+
+  /* ===== Tableaux inventaire / catalogue ===== */
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  .search{flex:1;min-width:160px}
+  .search input{width:100%;padding:12px 14px;border-radius:12px;border:1.5px solid var(--line);
+    background:rgba(0,0,0,.24);color:var(--paper);font-size:15px;outline:none}
+  .list .line{
+    display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center;
+    padding:12px 14px;border:1px solid var(--line);border-radius:12px;margin-bottom:9px;
+    background:linear-gradient(180deg,rgba(36,26,110,.5),rgba(36,26,110,.25));
+  }
+  .list .line .name{font-weight:700}
+  .list .line .meta{grid-column:1;font-size:12px;color:var(--muted);letter-spacing:.3px}
+  .list .line .qty{grid-row:1/3;grid-column:2;display:flex;align-items:center;gap:8px}
+  .list .line .qty input{width:64px;text-align:center;font-size:18px;font-weight:800;color:var(--paper);
+    background:rgba(0,0,0,.3);border:1.5px solid var(--line);border-radius:10px;padding:8px 2px;font-variant-numeric:tabular-nums}
+  .list .line .mini{width:34px;height:34px;border-radius:9px;border:none;background:var(--navy-3);color:var(--gold);font-size:18px;font-weight:800;cursor:pointer}
+  .rowbtns{display:flex;gap:6px;margin-top:6px}
+  .link{background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline;padding:2px}
+  .link.del{color:var(--danger)}
+
+  /* Totaux */
+  .totals{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 14px}
+  .stat{flex:1;min-width:100px;background:rgba(0,0,0,.22);border:1px solid var(--line);border-radius:14px;padding:14px}
+  .stat b{display:block;font-size:24px;color:var(--gold);font-variant-numeric:tabular-nums}
+  .stat span{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+
+  .empty{text-align:center;padding:40px 16px;color:var(--muted)}
+  .empty .big{font-size:40px;margin-bottom:10px}
+
+  /* ===== Barre d'onglets ===== */
+  nav.tabs{
+    position:fixed;left:0;right:0;bottom:0;z-index:40;
+    display:grid;grid-template-columns:repeat(4,1fr);
+    background:linear-gradient(180deg,rgba(20,13,72,.92),rgba(15,10,58,.98));
+    backdrop-filter:blur(10px);border-top:1px solid var(--line);
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  nav.tabs button{
+    background:none;border:none;color:var(--muted);padding:12px 4px 10px;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;font-weight:700;letter-spacing:.3px;
+  }
+  nav.tabs button .ic{font-size:22px;line-height:1}
+  nav.tabs button.active{color:var(--gold)}
+  nav.tabs button.active .ic{filter:drop-shadow(0 3px 8px rgba(239,159,39,.5))}
+
+  /* ===== Caméra ===== */
+  .camsheet{position:fixed;inset:0;z-index:60;background:rgba(6,4,26,.96);display:none;flex-direction:column}
+  .camsheet.on{display:flex}
+  .camsheet .top{display:flex;align-items:center;justify-content:space-between;padding:16px;padding-top:calc(16px + env(safe-area-inset-top))}
+  .camsheet .top b{font-size:16px}
+  .camstage{flex:1;position:relative;display:grid;place-items:center;overflow:hidden}
+  .camstage video{width:100%;height:100%;object-fit:cover}
+  .reticle{position:absolute;width:78%;max-width:420px;aspect-ratio:3/2;border-radius:18px;
+    box-shadow:0 0 0 3000px rgba(6,4,26,.55);border:2px solid rgba(255,255,255,.35)}
+  .reticle::before,.reticle::after{content:"";position:absolute;left:-2px;right:-2px;height:22px}
+  .laser{position:absolute;left:8%;right:8%;height:3px;background:var(--gold);box-shadow:0 0 14px 2px var(--gold);
+    border-radius:3px;animation:scan 2.1s ease-in-out infinite}
+  @keyframes scan{0%,100%{top:14%}50%{top:82%}}
+  .camsheet .caption{padding:16px 20px calc(24px + env(safe-area-inset-bottom));text-align:center;color:var(--muted);font-size:14px}
+  .camsheet .caption .err{color:var(--gold-soft)}
+
+  /* ===== Toast ===== */
+  #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--tabbar) + 18px);z-index:80;
+    background:var(--gold);color:var(--navy);font-weight:800;padding:12px 18px;border-radius:12px;
+    box-shadow:0 12px 30px rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:opacity .2s, transform .2s;max-width:88%;text-align:center}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
+  #toast.err{background:var(--danger);color:#fff}
+
+  @media (prefers-reduced-motion:reduce){.laser{animation:none;top:50%}.view{animation:none}}
+  @media (max-width:360px){ #scanInput{font-size:19px} .stat b{font-size:20px} }
+</style>
+</head>
+<body>
+
+<header class="app">
+  <div class="logo">P</div>
+  <div class="brand"><b>Inventaire Bar</b><span>Phil-Good</span></div>
+  <div class="barname" id="barLabel"></div>
+</header>
+
+<main>
+  <!-- ===================== VUE SCAN / ACCUEIL ===================== -->
+  <section id="view-scan" class="view active">
+    <div class="card">
+      <div class="eyebrow">Comptage</div>
+      <div class="scanwrap">
+        <label>Scanner ou saisir un code-barres</label>
+        <input id="scanInput" inputmode="numeric" autocomplete="off"
+               placeholder="Douchette ou saisie…" enterkeyhint="done">
+        <div class="hint">Pose le curseur ici et scanne avec la douchette — ou utilise la caméra du téléphone.</div>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <button class="btn gold grow big" id="btnCam">📷&nbsp; Scanner avec la caméra</button>
+        <button class="btn ghost" id="btnValid" title="Valider la saisie">Valider</button>
+      </div>
+    </div>
+
+    <div id="result"></div>
+
+    <div class="recent card" id="recentCard" style="display:none">
+      <div class="eyebrow">Derniers scans</div>
+      <div id="recentList"></div>
+    </div>
+  </section>
+
+  <!-- ===================== VUE INVENTAIRE ===================== -->
+  <section id="view-inv" class="view">
+    <div class="totals" id="invTotals"></div>
+    <div class="toolbar">
+      <div class="search"><input id="invSearch" placeholder="Rechercher dans le comptage…"></div>
+      <button class="btn gold" id="btnExportInv">⬇ Exporter</button>
+    </div>
+    <div class="list" id="invList"></div>
+  </section>
+
+  <!-- ===================== VUE CATALOGUE ===================== -->
+  <section id="view-cat" class="view">
+    <div class="toolbar">
+      <div class="search"><input id="catSearch" placeholder="Rechercher un produit…"></div>
+      <button class="btn solid" id="btnAddProd">+ Produit</button>
+    </div>
+    <div class="row" style="gap:10px;margin-bottom:12px">
+      <button class="btn ghost grow" id="btnImport">⬆ Importer (Excel/CSV)</button>
+      <button class="btn ghost grow" id="btnExportCat">⬇ Exporter</button>
+    </div>
+    <div class="list" id="catList"></div>
+  </section>
+
+  <!-- ===================== VUE RÉGLAGES ===================== -->
+  <section id="view-set" class="view">
+    <div class="card">
+      <div class="eyebrow">Établissement</div>
+      <div class="field">
+        <label>Nom du bar (apparaît sur les exports)</label>
+        <input id="setBarName" placeholder="Ex. Le Comptoir 66">
+      </div>
+      <button class="btn gold" id="btnSaveSettings">Enregistrer</button>
+    </div>
+    <div class="card">
+      <div class="eyebrow">Comptage en cours</div>
+      <p class="muted" style="margin:0 0 12px">« Nouvel inventaire » remet toutes les quantités à zéro mais conserve ton catalogue de produits.</p>
+      <button class="btn ghost block" id="btnNewInv">🧹 Nouvel inventaire (vider le comptage)</button>
+    </div>
+    <div class="card">
+      <div class="eyebrow">Sauvegarde</div>
+      <div class="row" style="gap:10px">
+        <button class="btn ghost grow" id="btnBackup">Sauvegarder (JSON)</button>
+        <button class="btn ghost grow" id="btnRestore">Restaurer</button>
+      </div>
+      <button class="btn danger block" style="margin-top:12px" id="btnWipe">Tout effacer</button>
+      <p class="muted" style="font-size:12px;margin:12px 0 0">Les données restent dans ce navigateur (hors ligne). Fais une sauvegarde JSON avant de changer d'appareil.</p>
+    </div>
+    <p class="muted" style="text-align:center;font-size:11px;margin:6px 0 4px">Phil-Good Formation · Inventaire Bar</p>
+  </section>
+</main>
+
+<nav class="tabs">
+  <button data-go="scan" class="active"><span class="ic">🎯</span>Scan</button>
+  <button data-go="inv"><span class="ic">📋</span>Inventaire</button>
+  <button data-go="cat"><span class="ic">🍾</span>Produits</button>
+  <button data-go="set"><span class="ic">⚙️</span>Réglages</button>
+</nav>
+
+<!-- Caméra -->
+<div class="camsheet" id="camSheet">
+  <div class="top">
+    <b>📷 Scanner un code-barres</b>
+    <button class="btn ghost" id="camClose">Fermer</button>
+  </div>
+  <div class="camstage">
+    <video id="camVideo" playsinline muted></video>
+    <div class="reticle"><div class="laser"></div></div>
+  </div>
+  <div class="caption" id="camCaption">Vise le code-barres au centre du cadre.</div>
+</div>
+
+<div id="toast"></div>
+
+<!-- Fichier caché pour import -->
+<input type="file" id="fileImport" accept=".xlsx,.xls,.csv" style="display:none">
+<input type="file" id="fileRestore" accept=".json" style="display:none">
+
+<script>
+/* =========================================================================
+   INVENTAIRE BAR — Phil-Good
+   Application autonome (1 fichier). Données en local (IndexedDB), hors ligne.
+   - Saisie douchette (clavier) + caméra du téléphone (BarcodeDetector / ZXing)
+   - Catalogue produits : code-barres, nom, contenance, famille, prix
+   - Comptage d'inventaire + export Excel/CSV
+   ========================================================================= */
+
+/* ---------- Mini couche IndexedDB (promisifiée) ---------- */
+const DB_NAME = 'philgood_inventaire_bar', DB_VER = 1;
+let _db;
+function openDB(){
+  return new Promise((res,rej)=>{
+    const r = indexedDB.open(DB_NAME, DB_VER);
+    r.onupgradeneeded = e=>{
+      const db = e.target.result;
+      if(!db.objectStoreNames.contains('produits'))  db.createObjectStore('produits',  {keyPath:'code'});
+      if(!db.objectStoreNames.contains('inventaire')) db.createObjectStore('inventaire', {keyPath:'code'});
+      if(!db.objectStoreNames.contains('meta'))       db.createObjectStore('meta',       {keyPath:'k'});
+    };
+    r.onsuccess = ()=>{ _db=r.result; res(_db); };
+    r.onerror   = ()=>rej(r.error);
+  });
+}
+function tx(store, mode='readonly'){ return _db.transaction(store, mode).objectStore(store); }
+function idbReq(req){ return new Promise((res,rej)=>{ req.onsuccess=()=>res(req.result); req.onerror=()=>rej(req.error); }); }
+const store = {
+  get:   (s,k)=> idbReq(tx(s).get(k)),
+  all:   (s)=>   idbReq(tx(s).getAll()),
+  put:   (s,v)=> idbReq(tx(s,'readwrite').put(v)),
+  del:   (s,k)=> idbReq(tx(s,'readwrite').delete(k)),
+  clear: (s)=>   idbReq(tx(s,'readwrite').clear()),
+};
+
+/* ---------- État & utilitaires ---------- */
+let RECENT = [];                 // derniers scans (mémoire)
+let BARNAME = '';
+const FAMILLES = ['Spiritueux','Vins','Bières','Softs','Sirops','Cocktails','Autres'];
+const CONTENANCES = ['33 cl','25 cl','50 cl','70 cl','75 cl','1 L','1,5 L','5 L'];
+
+const $  = s=>document.querySelector(s);
+const $$ = s=>document.querySelectorAll(s);
+const esc = s => String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const nf = n => Number(n||0).toLocaleString('fr-FR',{maximumFractionDigits:2});
+const money = n => Number(n||0).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
+
+function toast(msg, isErr=false){
+  const t=$('#toast'); t.textContent=msg; t.className='show'+(isErr?' err':'');
+  clearTimeout(t._t); t._t=setTimeout(()=>t.className='',1900);
+}
+function beep(){
+  try{
+    const ac=new (window.AudioContext||window.webkitAudioContext)();
+    const o=ac.createOscillator(),g=ac.createGain();
+    o.type='square';o.frequency.value=880;o.connect(g);g.connect(ac.destination);
+    g.gain.setValueAtTime(.0001,ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(.25,ac.currentTime+.01);
+    g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+.16);
+    o.start();o.stop(ac.currentTime+.17);
+  }catch(e){}
+}
+
+/* ---------- Navigation onglets ---------- */
+function go(name){
+  $$('.view').forEach(v=>v.classList.remove('active'));
+  $('#view-'+name).classList.add('active');
+  $$('nav.tabs button').forEach(b=>b.classList.toggle('active', b.dataset.go===name));
+  if(name==='inv') renderInv();
+  if(name==='cat') renderCat();
+  if(name==='scan') setTimeout(()=>$('#scanInput').focus(),80);
+}
+$$('nav.tabs button').forEach(b=>b.addEventListener('click',()=>go(b.dataset.go)));
+
+/* =========================================================================
+   SCAN / ACCUEIL
+   ========================================================================= */
+const scanInput=$('#scanInput');
+function refocus(){ scanInput.focus(); scanInput.select?.(); }
+
+scanInput.addEventListener('keydown', e=>{
+  if(e.key==='Enter'){ e.preventDefault(); const v=scanInput.value.trim(); scanInput.value=''; if(v) processCode(v); }
+});
+$('#btnValid').addEventListener('click', ()=>{
+  const v=scanInput.value.trim(); scanInput.value=''; if(v) processCode(v); else refocus();
+});
+
+async function processCode(code){
+  code = code.replace(/\s+/g,'');
+  if(!code){ refocus(); return; }
+  beep();
+  const prod = await store.get('produits', code);
+  if(prod) showFound(prod);
+  else showNew(code);
+}
+
+/* Panneau : produit trouvé -> saisir quantité à ajouter */
+async function showFound(prod){
+  const inv = await store.get('inventaire', prod.code);
+  const dejaCompte = inv ? inv.qte : 0;
+  $('#result').innerHTML = `
+    <div class="card prodcard">
+      <span class="badge">Au catalogue</span>
+      ${dejaCompte?`<span class="badge">déjà compté : ${nf(dejaCompte)}</span>`:''}
+      <h3>${esc(prod.nom)}</h3>
+      <div class="code">${esc(prod.code)} · ${esc(prod.contenance||'—')}${prod.famille?' · '+esc(prod.famille):''}</div>
+      <div class="stepper">
+        <button data-step="-1">–</button>
+        <input id="qadd" type="number" step="0.5" value="1" inputmode="decimal">
+        <button data-step="1">+</button>
+        <span class="unit">à ajouter</span>
+      </div>
+      <button class="btn gold block big" id="qok">Ajouter au comptage</button>
+    </div>`;
+  wireStepper();
+  $('#qok').addEventListener('click', async ()=>{
+    const q=parseFloat($('#qadd').value)||0;
+    await addToInventory(prod, q);
+    $('#result').innerHTML=''; refocus();
+  });
+}
+
+/* Panneau : nouveau produit -> créer + compter */
+function showNew(code){
+  $('#result').innerHTML = `
+    <div class="card prodcard" style="border-left-color:var(--ok)">
+      <span class="badge new">Nouveau produit</span>
+      <div class="code" style="margin:6px 0 12px">${esc(code)}</div>
+      <div class="field">
+        <label>Nom du produit *</label>
+        <input id="nNom" placeholder="Ex. Ricard, Coca 33cl, Heineken…" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>Contenance</label>
+        <input id="nCont" placeholder="Ex. 70 cl" autocomplete="off">
+        <div class="chips" id="contChips">${CONTENANCES.map(c=>`<span class="chip">${c}</span>`).join('')}</div>
+      </div>
+      <div class="field">
+        <label>Famille</label>
+        <div class="chips" id="famChips">${FAMILLES.map(f=>`<span class="chip">${f}</span>`).join('')}</div>
+      </div>
+      <div class="field">
+        <label>Prix unitaire (optionnel, pour valoriser le stock)</label>
+        <input id="nPrix" type="number" step="0.01" inputmode="decimal" placeholder="€" autocomplete="off">
+      </div>
+      <div class="stepper">
+        <button data-step="-1">–</button>
+        <input id="qadd" type="number" step="0.5" value="1" inputmode="decimal">
+        <button data-step="1">+</button>
+        <span class="unit">quantité</span>
+      </div>
+      <button class="btn gold block big" id="qok">Créer et compter</button>
+    </div>`;
+  // chips contenance (remplit le champ)
+  $('#contChips').addEventListener('click',e=>{ if(e.target.classList.contains('chip')) $('#nCont').value=e.target.textContent; });
+  // chips famille (sélection unique)
+  $('#famChips').addEventListener('click',e=>{
+    if(!e.target.classList.contains('chip'))return;
+    $$('#famChips .chip').forEach(c=>c.classList.remove('on')); e.target.classList.add('on');
+  });
+  wireStepper();
+  $('#nNom').focus();
+  $('#qok').addEventListener('click', async ()=>{
+    const nom=$('#nNom').value.trim();
+    if(!nom){ toast('Indique un nom de produit', true); $('#nNom').focus(); return; }
+    const fam = $('#famChips .chip.on')?.textContent || '';
+    const prod={ code, nom, contenance:$('#nCont').value.trim(), famille:fam, prix:parseFloat($('#nPrix').value)||0 };
+    await store.put('produits', prod);
+    await addToInventory(prod, parseFloat($('#qadd').value)||0);
+    $('#result').innerHTML=''; refocus();
+  });
+}
+
+function wireStepper(){
+  $$('.stepper button').forEach(b=>b.addEventListener('click',()=>{
+    const inp=b.parentElement.querySelector('input');
+    inp.value = Math.max(0,(parseFloat(inp.value)||0)+parseFloat(b.dataset.step));
+  }));
+}
+
+async function addToInventory(prod, q){
+  if(!q){ toast('Quantité à 0 — rien ajouté', true); return; }
+  const cur = await store.get('inventaire', prod.code);
+  const qte = (cur?cur.qte:0) + q;
+  await store.put('inventaire', {code:prod.code, nom:prod.nom, contenance:prod.contenance||'', famille:prod.famille||'', prix:prod.prix||0, qte});
+  RECENT.unshift({nom:prod.nom, contenance:prod.contenance, add:q, total:qte}); RECENT=RECENT.slice(0,8);
+  renderRecent();
+  toast(`✓ ${prod.nom} · +${nf(q)} (total ${nf(qte)})`);
+}
+
+function renderRecent(){
+  if(!RECENT.length){ $('#recentCard').style.display='none'; return; }
+  $('#recentCard').style.display='';
+  $('#recentList').innerHTML = RECENT.map(r=>`
+    <div class="item">
+      <div><b>${esc(r.nom)}</b><br><small>${esc(r.contenance||'—')}</small></div>
+      <div class="q">+${nf(r.add)} → ${nf(r.total)}</div>
+    </div>`).join('');
+}
+
+/* =========================================================================
+   CAMÉRA (BarcodeDetector natif, sinon ZXing via CDN)
+   ========================================================================= */
+let camStream=null, camRAF=null, zxingReader=null, lastHit={code:'',t:0};
+const ZXING_URL='https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js';
+
+$('#btnCam').addEventListener('click', openCam);
+$('#camClose').addEventListener('click', closeCam);
+
+async function openCam(){
+  const sheet=$('#camSheet'), cap=$('#camCaption'), video=$('#camVideo');
+  sheet.classList.add('on');
+
+  // La caméra n'est autorisée qu'en contexte sécurisé (https:// ou localhost).
+  // Sur iPhone, un fichier ouvert en local (file://) ne peut PAS accéder à la caméra.
+  if(!window.isSecureContext || !(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)){
+    cap.innerHTML =
+      '<span class="err">La caméra ne peut pas démarrer ici.</span><br><br>'+
+      "Sur iPhone, la caméra n'est autorisée que sur une adresse <b>https://</b>. "+
+      "Là, le fichier est ouvert en local, donc Safari la bloque.<br><br>"+
+      "➜ Dépose <b>inventaire_bar.html</b> sur <b>GitHub&nbsp;Pages</b> et ouvre le lien "+
+      "<b>https</b> dans Safari : la caméra fonctionnera.<br><br>"+
+      "En attendant, la <b>douchette</b> et la <b>saisie manuelle</b> restent utilisables.";
+    return;
+  }
+
+  cap.innerHTML='Démarrage de la caméra…';
+  try{
+    if('BarcodeDetector' in window){
+      // Chemin rapide Android/Chrome : détecteur natif du navigateur
+      camStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}});
+      video.srcObject=camStream; await video.play();
+      const formats = ['ean_13','ean_8','upc_a','upc_e','code_128','code_39','codabar','itf'];
+      let supported=[]; try{ supported=await BarcodeDetector.getSupportedFormats(); }catch(e){}
+      const detector = new BarcodeDetector({formats: supported.length?formats.filter(f=>supported.includes(f)):formats});
+      cap.innerHTML='Vise le code-barres au centre du cadre.';
+      const loop=async()=>{
+        if(!sheet.classList.contains('on'))return;
+        try{ const codes=await detector.detect(video); if(codes&&codes[0]) onCamHit(codes[0].rawValue); }catch(e){}
+        camRAF=requestAnimationFrame(loop);
+      };
+      loop();
+    }else{
+      // iPhone / Safari : lecteur ZXing (préchargé au démarrage pour ne pas perdre l'autorisation)
+      if(!window.ZXing) await loadScript(ZXING_URL);
+      zxingReader = new ZXing.BrowserMultiFormatReader();
+      cap.innerHTML='Vise le code-barres au centre du cadre.';
+      await zxingReader.decodeFromConstraints(
+        {video:{facingMode:{ideal:'environment'}}}, video,
+        (result)=>{ if(result) onCamHit(result.getText()); }
+      );
+    }
+  }catch(err){
+    cap.innerHTML =
+      '<span class="err">Caméra refusée ou indisponible.</span><br><br>'+
+      "Vérifie l'autorisation : Réglages ▸ Safari ▸ Caméra ▸ Autoriser, puis rouvre l'appli. "+
+      "La douchette reste utilisable.";
+  }
+}
+
+function onCamHit(code){
+  const now=Date.now();
+  if(code===lastHit.code && now-lastHit.t<1500) return;   // anti-doublon
+  lastHit={code,t:now};
+  navigator.vibrate?.(60);
+  closeCam();
+  processCode(code);
+}
+
+function closeCam(){
+  $('#camSheet').classList.remove('on');
+  if(camRAF) cancelAnimationFrame(camRAF), camRAF=null;
+  if(zxingReader){ try{zxingReader.reset();}catch(e){} zxingReader=null; }
+  if(camStream){ camStream.getTracks().forEach(t=>t.stop()); camStream=null; }
+  $('#camVideo').srcObject=null;
+}
+function loadScript(src){
+  return new Promise((res,rej)=>{
+    if([...document.scripts].some(s=>s.src===src)) return res();
+    const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=()=>rej(new Error('load '+src));
+    document.head.appendChild(s);
+  });
+}
+
+/* =========================================================================
+   VUE INVENTAIRE
+   ========================================================================= */
+$('#invSearch').addEventListener('input', renderInv);
+async function renderInv(){
+  const q=($('#invSearch').value||'').toLowerCase();
+  let rows = await store.all('inventaire');
+  rows.sort((a,b)=>a.nom.localeCompare(b.nom,'fr'));
+  const filtered = rows.filter(r=>!q || (r.nom+' '+r.code+' '+(r.contenance||'')+' '+(r.famille||'')).toLowerCase().includes(q));
+
+  // totaux (sur l'ensemble, pas le filtre)
+  const nbRef=rows.length;
+  const nbUnit=rows.reduce((s,r)=>s+ (r.qte||0),0);
+  const valeur=rows.reduce((s,r)=>s+ (r.qte||0)*(r.prix||0),0);
+  $('#invTotals').innerHTML=`
+    <div class="stat"><b>${nf(nbRef)}</b><span>références</span></div>
+    <div class="stat"><b>${nf(nbUnit)}</b><span>unités</span></div>
+    <div class="stat"><b>${valeur?money(valeur):'—'}</b><span>valeur stock</span></div>`;
+
+  if(!filtered.length){
+    $('#invList').innerHTML = rows.length
+      ? `<div class="empty">Aucun résultat pour « ${esc(q)} ».</div>`
+      : `<div class="empty"><div class="big">📋</div>Aucun comptage pour l'instant.<br>Va dans <b>Scan</b> et commence à scanner.</div>`;
+    return;
+  }
+  $('#invList').innerHTML = filtered.map(r=>`
+    <div class="line" data-code="${esc(r.code)}">
+      <div class="name">${esc(r.nom)}</div>
+      <div class="meta">${esc(r.contenance||'—')}${r.famille?' · '+esc(r.famille):''} · ${esc(r.code)}</div>
+      <div class="qty">
+        <button class="mini" data-inv-step="-1">–</button>
+        <input type="number" step="0.5" value="${r.qte}" data-inv-qty>
+        <button class="mini" data-inv-step="1">+</button>
+      </div>
+      <div class="rowbtns"><button class="link del" data-inv-del>supprimer</button></div>
+    </div>`).join('');
+
+  $$('#invList .line').forEach(line=>{
+    const code=line.dataset.code, input=line.querySelector('[data-inv-qty]');
+    const save=async v=>{ const val=Math.max(0,parseFloat(v)||0);
+      const it=await store.get('inventaire',code); it.qte=val; await store.put('inventaire',it); renderInv(); };
+    line.querySelectorAll('[data-inv-step]').forEach(b=>b.addEventListener('click',()=>save((parseFloat(input.value)||0)+parseFloat(b.dataset.invStep))));
+    input.addEventListener('change',()=>save(input.value));
+    line.querySelector('[data-inv-del]').addEventListener('click',async()=>{ await store.del('inventaire',code); renderInv(); });
+  });
+}
+
+/* =========================================================================
+   VUE CATALOGUE
+   ========================================================================= */
+$('#catSearch').addEventListener('input', renderCat);
+$('#btnAddProd').addEventListener('click', ()=>editProduct(null));
+
+async function renderCat(){
+  const q=($('#catSearch').value||'').toLowerCase();
+  let rows = await store.all('produits');
+  rows.sort((a,b)=>a.nom.localeCompare(b.nom,'fr'));
+  const filtered = rows.filter(r=>!q || (r.nom+' '+r.code+' '+(r.contenance||'')+' '+(r.famille||'')).toLowerCase().includes(q));
+  if(!filtered.length){
+    $('#catList').innerHTML = rows.length
+      ? `<div class="empty">Aucun résultat.</div>`
+      : `<div class="empty"><div class="big">🍾</div>Catalogue vide.<br>Ajoute un produit, importe un fichier,<br>ou crée-les en scannant.</div>`;
+    return;
+  }
+  $('#catList').innerHTML = filtered.map(r=>`
+    <div class="line" data-code="${esc(r.code)}">
+      <div class="name">${esc(r.nom)}</div>
+      <div class="meta">${esc(r.contenance||'—')}${r.famille?' · '+esc(r.famille):''}${r.prix?' · '+money(r.prix):''} · ${esc(r.code)}</div>
+      <div class="qty rowbtns" style="grid-row:1/3">
+        <button class="link" data-edit>modifier</button>
+        <button class="link del" data-del>suppr.</button>
+      </div>
+    </div>`).join('');
+  $$('#catList .line').forEach(line=>{
+    const code=line.dataset.code;
+    line.querySelector('[data-edit]').addEventListener('click',async()=>editProduct(await store.get('produits',code)));
+    line.querySelector('[data-del]').addEventListener('click',async()=>{
+      if(confirm('Supprimer ce produit du catalogue ?')){ await store.del('produits',code); renderCat(); }
+    });
+  });
+}
+
+/* Édition produit (réutilise le panneau, en overlay simple via prompt-cards) */
+function editProduct(prod){
+  const isNew=!prod; prod=prod||{code:'',nom:'',contenance:'',famille:'',prix:0};
+  const html=`
+    <div class="card prodcard">
+      <span class="badge">${isNew?'Nouveau produit':'Modifier'}</span>
+      <div class="field"><label>Code-barres *</label><input id="eCode" value="${esc(prod.code)}" ${isNew?'':'readonly'} inputmode="numeric"></div>
+      <div class="field"><label>Nom *</label><input id="eNom" value="${esc(prod.nom)}"></div>
+      <div class="field"><label>Contenance</label><input id="eCont" value="${esc(prod.contenance)}">
+        <div class="chips" id="eContChips">${CONTENANCES.map(c=>`<span class="chip">${c}</span>`).join('')}</div></div>
+      <div class="field"><label>Famille</label>
+        <div class="chips" id="eFam">${FAMILLES.map(f=>`<span class="chip ${f===prod.famille?'on':''}">${f}</span>`).join('')}</div></div>
+      <div class="field"><label>Prix unitaire</label><input id="ePrix" type="number" step="0.01" value="${prod.prix||''}"></div>
+      <div class="row"><button class="btn gold grow" id="eSave">Enregistrer</button><button class="btn ghost" id="eCancel">Annuler</button></div>
+    </div>`;
+  // On affiche l'éditeur en haut de la vue catalogue
+  const holder=document.createElement('div'); holder.id='editHolder'; holder.innerHTML=html;
+  const view=$('#view-cat'); view.insertBefore(holder, view.firstChild); window.scrollTo(0,0);
+  holder.querySelector('#eContChips').addEventListener('click',e=>{ if(e.target.classList.contains('chip')) holder.querySelector('#eCont').value=e.target.textContent; });
+  holder.querySelector('#eFam').addEventListener('click',e=>{ if(!e.target.classList.contains('chip'))return;
+    holder.querySelectorAll('#eFam .chip').forEach(c=>c.classList.remove('on')); e.target.classList.add('on'); });
+  holder.querySelector('#eCancel').addEventListener('click',()=>holder.remove());
+  holder.querySelector('#eSave').addEventListener('click',async()=>{
+    const code=holder.querySelector('#eCode').value.replace(/\s+/g,'');
+    const nom=holder.querySelector('#eNom').value.trim();
+    if(!code||!nom){ toast('Code-barres et nom obligatoires',true); return; }
+    await store.put('produits',{code, nom, contenance:holder.querySelector('#eCont').value.trim(),
+      famille:holder.querySelector('#eFam .chip.on')?.textContent||'', prix:parseFloat(holder.querySelector('#ePrix').value)||0});
+    holder.remove(); renderCat(); toast('Produit enregistré');
+  });
+}
+
+/* =========================================================================
+   IMPORT / EXPORT (Excel via SheetJS chargé à la demande, CSV natif)
+   ========================================================================= */
+async function ensureXLSX(){ await loadScript('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'); return window.XLSX; }
+function download(filename, blob){
+  const url=URL.createObjectURL(blob), a=document.createElement('a');
+  a.href=url; a.download=filename; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1500);
+}
+function dateStr(){ const d=new Date(); return d.toISOString().slice(0,10); }
+
+/* --- Import catalogue --- */
+$('#btnImport').addEventListener('click',()=>$('#fileImport').click());
+$('#fileImport').addEventListener('change', async e=>{
+  const file=e.target.files[0]; e.target.value=''; if(!file)return;
+  try{
+    const XLSX=await ensureXLSX();
+    const data=new Uint8Array(await file.arrayBuffer());
+    const wb=XLSX.read(data,{type:'array'});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const json=XLSX.utils.sheet_to_json(ws,{defval:''});
+    if(!json.length){ toast('Fichier vide',true); return; }
+    // Détection souple des colonnes
+    const keys=Object.keys(json[0]);
+    const find=(...cands)=>keys.find(k=>cands.some(c=>k.toString().toLowerCase().includes(c)));
+    const kCode=find('code','barre','ean','gencod'), kNom=find('nom','désign','design','descript','libell','produit','article');
+    const kCont=find('contenance','volume','format','conten','cl','litre'), kFam=find('famille','catég','categ','rayon'), kPrix=find('prix','tarif','pu','ttc','vente');
+    if(!kCode||!kNom){ toast("Colonnes 'code-barres' et 'nom' introuvables",true); return; }
+    let n=0;
+    for(const r of json){
+      const code=String(r[kCode]).replace(/\.0$/,'').replace(/\s+/g,''); if(!code)continue;
+      const nom=String(r[kNom]).trim(); if(!nom)continue;
+      await store.put('produits',{code, nom, contenance:kCont?String(r[kCont]).trim():'',
+        famille:kFam?String(r[kFam]).trim():'', prix:kPrix?(parseFloat(String(r[kPrix]).replace(',','.'))||0):0}); n++;
+    }
+    toast(`${n} produit(s) importé(s)`); renderCat();
+  }catch(err){ toast('Import impossible : '+err.message,true); }
+});
+
+/* --- Export catalogue --- */
+$('#btnExportCat').addEventListener('click', async ()=>{
+  const rows=await store.all('produits');
+  if(!rows.length){ toast('Catalogue vide',true); return; }
+  rows.sort((a,b)=>a.nom.localeCompare(b.nom,'fr'));
+  const XLSX=await ensureXLSX();
+  const aoa=[['Code-barres','Nom','Contenance','Famille','Prix unitaire']];
+  rows.forEach(r=>aoa.push([r.code,r.nom,r.contenance||'',r.famille||'',r.prix||'']));
+  const wb=XLSX.utils.book_new(), ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols']=[{wch:16},{wch:34},{wch:12},{wch:14},{wch:12}];
+  XLSX.utils.book_append_sheet(wb,ws,'Catalogue');
+  XLSX.writeFile(wb,`catalogue_bar_${dateStr()}.xlsx`);
+});
+
+/* --- Export inventaire (Excel) --- */
+$('#btnExportInv').addEventListener('click', async ()=>{
+  const rows=await store.all('inventaire');
+  if(!rows.length){ toast('Rien à exporter',true); return; }
+  rows.sort((a,b)=>(a.famille||'zz').localeCompare(b.famille||'zz','fr')||a.nom.localeCompare(b.nom,'fr'));
+  const XLSX=await ensureXLSX();
+  const aoa=[
+    [ (BARNAME||'Inventaire Bar')+' — Inventaire du '+new Date().toLocaleDateString('fr-FR') ],
+    [],
+    ['Code-barres','Nom','Contenance','Famille','Quantité','Prix unitaire','Valeur'],
+  ];
+  let tQ=0,tV=0;
+  rows.forEach(r=>{ const val=(r.qte||0)*(r.prix||0); tQ+=r.qte||0; tV+=val;
+    aoa.push([r.code,r.nom,r.contenance||'',r.famille||'',r.qte||0,r.prix||'',r.prix?val:'']); });
+  aoa.push([]); aoa.push(['','','','TOTAL',tQ,'',tV||'']);
+  const wb=XLSX.utils.book_new(), ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols']=[{wch:16},{wch:34},{wch:12},{wch:14},{wch:10},{wch:12},{wch:12}];
+  ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:6}}];
+  XLSX.utils.book_append_sheet(wb,ws,'Inventaire');
+  XLSX.writeFile(wb,`inventaire_bar_${dateStr()}.xlsx`);
+  toast('Export Excel généré');
+});
+
+/* =========================================================================
+   RÉGLAGES / SAUVEGARDE
+   ========================================================================= */
+$('#btnSaveSettings').addEventListener('click', async ()=>{
+  BARNAME=$('#setBarName').value.trim();
+  await store.put('meta',{k:'barname',v:BARNAME});
+  $('#barLabel').textContent=BARNAME; toast('Réglages enregistrés');
+});
+$('#btnNewInv').addEventListener('click', async ()=>{
+  if(confirm('Vider tout le comptage en cours ? (le catalogue est conservé)')){
+    await store.clear('inventaire'); RECENT=[]; renderRecent(); toast('Nouvel inventaire prêt'); renderInv();
+  }
+});
+$('#btnWipe').addEventListener('click', async ()=>{
+  if(confirm('Effacer TOUT (catalogue + comptage) ? Action irréversible.')){
+    await store.clear('produits'); await store.clear('inventaire');
+    RECENT=[]; renderRecent(); renderCat(); renderInv(); toast('Tout a été effacé');
+  }
+});
+$('#btnBackup').addEventListener('click', async ()=>{
+  const dump={produits:await store.all('produits'), inventaire:await store.all('inventaire'),
+    barname:BARNAME, date:new Date().toISOString()};
+  download(`sauvegarde_inventaire_${dateStr()}.json`, new Blob([JSON.stringify(dump)],{type:'application/json'}));
+});
+$('#btnRestore').addEventListener('click', ()=>$('#fileRestore').click());
+$('#fileRestore').addEventListener('change', async e=>{
+  const f=e.target.files[0]; e.target.value=''; if(!f)return;
+  try{
+    const d=JSON.parse(await f.text());
+    if(d.produits)  for(const p of d.produits) await store.put('produits',p);
+    if(d.inventaire)for(const i of d.inventaire) await store.put('inventaire',i);
+    if(d.barname){ BARNAME=d.barname; await store.put('meta',{k:'barname',v:BARNAME}); $('#barLabel').textContent=BARNAME; $('#setBarName').value=BARNAME; }
+    toast('Sauvegarde restaurée'); renderCat(); renderInv();
+  }catch(err){ toast('Fichier invalide',true); }
+});
+
+/* =========================================================================
+   DÉMARRAGE
+   ========================================================================= */
+(async function init(){
+  await openDB();
+  const m=await store.get('meta','barname'); BARNAME=m?m.v:''; $('#barLabel').textContent=BARNAME; $('#setBarName').value=BARNAME;
+  renderRecent();
+  setTimeout(refocus,200);
+  // Précharge le lecteur caméra en tâche de fond (utile sur iPhone/Safari)
+  loadScript(ZXING_URL).catch(()=>{});
+})();
+
+// Garde le focus sur le champ de scan tant qu'on est sur l'accueil (utile pour la douchette)
+document.addEventListener('click',e=>{
+  if($('#view-scan').classList.contains('active') && !$('#camSheet').classList.contains('on')
+     && !e.target.closest('button,input,select,.chip,#result,#recentCard')) refocus();
+});
+</script>
+</body>
+</html>
